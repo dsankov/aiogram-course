@@ -1,12 +1,15 @@
-import json
+import asyncio
 import random
-from urllib.parse import urlencode, uses_relative
 
-import requests
 from aiogram import Bot, Dispatcher, F
-from aiogram.filters import Command, CommandStart
-from aiogram.types import ContentType, Message
-# from pydantic_settings import BaseSettings, SettingsConfigDict
+from aiogram.filters import (
+    KICKED,
+    MEMBER,
+    ChatMemberUpdatedFilter,
+    Command,
+    CommandStart,
+)
+from aiogram.types import ChatMemberUpdated, ContentType, Message
 
 from config import Settings
 
@@ -23,23 +26,43 @@ user = {
 #     print(message.model_dump_json(indent=4, exclude_none=True))
 
 
+# TODO Why not `async def main`?
 def main() -> None:
     settings = Settings()
     bot = Bot(token=settings.BOT_TOKEN)
-    dp = Dispatcher()
+    dispatcher = Dispatcher()
+    message_handlers = [
+        (process_start_command, CommandStart()),
+        (process_help_command, Command(commands=["help", "rules"])),
+        (process_cancel_command, Command("cancel")),
+        (process_stat_command, Command("stat")),
+        (process_positive_ansver, F.text.lower().in_(["y", "yes"])),
+        (
+            process_numbers_answer_in_game,
+            lambda x: x.text and x.text.isdigit() and 1 <= int(x.text) <= 100,
+        ),
+        (process_other_message_input, F.text),
+    ]
 
-    dp.message.register(process_start_command, CommandStart())
-    dp.message.register(process_help_command, Command(commands=["help", "rules"]))
-    dp.message.register(process_stat_command, Command("stat"))
-    dp.message.register(process_cancel_command, Command("cancel"))
-    dp.message.register(process_positive_ansver, F.text.lower().in_(["y", "yes"]))
-    dp.message.register(
-        process_numbers_answer_in_game,
-        lambda x: x.text and x.text.isdigit() and 1 <= int(x.text) <= 100,
-    )
+    for handler, filter in message_handlers:
+        dispatcher.message.register(handler, filter)
 
-    dp.message.register(process_other_input)
-    dp.run_polling(bot)
+    event_handlers = [
+        (
+            process_user_blocked_bot,
+            ChatMemberUpdatedFilter(member_status_changed=KICKED),
+        ),
+        (
+            process_user_unblock_bot,
+            ChatMemberUpdatedFilter(member_status_changed=MEMBER),
+        ),
+    ]
+
+    for handler, filter in event_handlers:
+        dispatcher.my_chat_member.register(handler, filter)
+
+    dispatcher.run_polling(bot)
+
 
 
 def get_random_number() -> int:
@@ -99,16 +122,26 @@ async def process_numbers_answer_in_game(message: Message):
     else:
         user["attemts"] -= 1
         await message.answer(text="More")
-    
+
     if user["attemts"] <= 0:
         user["in_game"] = False
         user["total_games"] += 1
-        await message.answer(text=f"You loose. It was {user['secret_number']}\nAnother try?")
-        
-    
+        await message.answer(
+            text=f"You loose. It was {user['secret_number']}\nAnother try?"
+        )
 
-async def process_other_input(message: Message):
+
+async def process_other_message_input(message: Message):
     await message.answer(text="xm.. unecpected input")
+
+
+async def process_user_blocked_bot(event: ChatMemberUpdated):
+    print(f"Пользователь {event.from_user.id} заблокировал бота")
+
+
+async def process_user_unblock_bot(event: ChatMemberUpdated):
+    print(f"Пользователь {event.from_user.id} разблокировал бота")
+    await event.answer(text=f"Welcome back {event.from_user.first_name}")
 
 
 if __name__ == "__main__":
