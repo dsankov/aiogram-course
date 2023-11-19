@@ -1,5 +1,9 @@
 import asyncio
+from curses.ascii import isdigit
+from email import message
+from enum import Flag
 import random
+from typing import Any
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import (
@@ -8,6 +12,7 @@ from aiogram.filters import (
     ChatMemberUpdatedFilter,
     Command,
     CommandStart,
+    BaseFilter,
 )
 from aiogram.types import ChatMemberUpdated, ContentType, Message
 
@@ -22,15 +27,50 @@ user = {
     "wins": 0,
 }
 
+admin_ids = [112033576,]
+class IsAdmin(BaseFilter):
+    def __init__(self, admin_ids: list[int]) -> None:
+        super().__init__()
+        self.admin_ids: list[int] = admin_ids
+        
+    async def __call__(self, message: Message, *args: Any, **kwds: Any) -> Any:
+       
+        return message.from_user.id in self.admin_ids
+
+async def answer_if_admins_update(message: Message):
+    await message.answer(text="You are an admin")
 # def print_aiogram_Message(message: Message) -> None:
 #     print(message.model_dump_json(indent=4, exclude_none=True))
 
+class NumbersInMessage(BaseFilter):
+    async def __call__(self, message: Message) -> bool | dict[str, list[int]]:
+        numbers = []
+        for word in message.text.split():
+            normilized_word = word.replace(".", "").replace(",","").strip()
+            if normilized_word.isdigit():
+                numbers.append(int(normilized_word))
+        if numbers:
+            return {"numbers": numbers}
+        return False
+    
+async def process_if_found_numbers(message: Message, numbers: list[int]):
+    await message.reply(text=f"Found: {', '.join(map(str,numbers))}")
+    
+async def process_if_not_found_numbers(message: Message):
+    await message.reply(text="No numbers were found in input"
+                         )    
 
 # TODO Why not `async def main`?
 def main() -> None:
     settings = Settings()
     bot = Bot(token=settings.BOT_TOKEN)
     dispatcher = Dispatcher()
+    
+    # dispatcher.message.register(answer_if_admins_update, IsAdmin(admin_ids))
+    dispatcher.message.register(process_if_found_numbers, F.text.lower().startswith("find numbers"), NumbersInMessage())
+    dispatcher.message.register(process_if_not_found_numbers, F.text.lower().startswith("find numbers"))
+    
+    
     message_handlers = [
         (process_start_command, CommandStart()),
         (process_help_command, Command(commands=["help", "rules"])),
