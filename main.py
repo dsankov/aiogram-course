@@ -4,6 +4,9 @@ from email import message
 from enum import Flag
 import random
 from typing import Any
+import os
+
+from rich import print as rprint
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import (
@@ -118,6 +121,7 @@ async def process_help_command(message: Message):
 
 
 async def process_stat_command(message: Message):
+    rprint(message)
     await message.answer(
         text=f"Total games: {user['total_games']} \n" f"Wins: {user['wins']}"
     )
@@ -177,12 +181,12 @@ async def process_other_message_input(message: Message):
 
 async def process_user_blocked_bot(event: ChatMemberUpdated):
     print(f"Пользователь {event.from_user.id} заблокировал бота")
-
+    rprint(event)
 
 async def process_user_unblock_bot(event: ChatMemberUpdated):
     print(f"Пользователь {event.from_user.id} разблокировал бота")
+    rprint(event)
     await event.answer(text=f"Welcome back {event.from_user.first_name}")
-
 
 if __name__ == "__main__":
     main()
