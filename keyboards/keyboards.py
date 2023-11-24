@@ -22,6 +22,6 @@ button_spock = KeyboardButton(text=LEXICON_RU["spock"])
 game_keyboard_builder = ReplyKeyboardBuilder()
 game_keyboard_builder.row(
     button_rock, button_paper, button_scissors, button_lizard, button_spock,
-    width=3,
+    width=3, 
 )
-game_keyboard : ReplyKeyboardMarkup = game_keyboard_builder.as_markup()
+game_keyboard : ReplyKeyboardMarkup = game_keyboard_builder.as_markup(resize_keyboard=True)

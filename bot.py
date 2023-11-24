@@ -3,12 +3,22 @@ import logging
 # from venv import logger
 
 from aiogram import Bot, Dispatcher
+from aiogram.filters import command
+from aiogram.types import BotCommand
 from config_data.config import Config, load_config
 
 from handlers import other_handlers, user_handlers
 
 logger = logging.getLogger(__name__)
 
+
+async def set_main_bot_menu(bot: Bot):
+    bot_commands = [
+        # BotCommand(command="", description=""),
+        BotCommand(command="/help", description="Справка по работе бота"),
+        BotCommand(command="/stat", description="Статистика игр"),
+    ]
+    await bot.set_my_commands(bot_commands)
 
 async def main() -> None:
     logging.basicConfig(
@@ -22,6 +32,7 @@ async def main() -> None:
     bot = Bot(token=config.tg_bot.token, parse_mode="HTML")
     dispatcher = Dispatcher()
 
+    dispatcher.startup.register(set_main_bot_menu)
     dispatcher.include_router(user_handlers.router)
     dispatcher.include_router(other_handlers.router)
 
